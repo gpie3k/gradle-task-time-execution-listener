@@ -1,0 +1,47 @@
+class TimingsListener implements TaskExecutionListener, BuildListener {
+
+   private names = []
+
+   private Clock clock
+   private timings = [:]
+
+   @Override
+   void beforeExecute(Task task) {
+      clock = new org.gradle.util.Clock()
+
+      if (!names.contains(task.name)) names << task.name
+   }
+
+   @Override
+   void afterExecute(Task task, TaskState taskState) {
+      def ms = clock.timeInMs
+
+      def key = task.path - ~/:[^:]+$/
+      def info = timings[key]
+      if (!timings[key]) timings[key] = info = [:].withDefault {''}
+      info[task.name] = ms
+   }
+
+   @Override
+   void buildFinished(BuildResult result) {
+      printf "%10s\t%s\t%s\n", 'TOTAL', 'COMPONENT', names.join('\t')
+      timings.each {name, Map info ->
+         printf "%10.3f\t%s\t%s\n", info.values().sum() / 1000, name, names.collect({info[it]}).join('\t')
+      }
+
+   }
+
+   @Override
+   void buildStarted(Gradle gradle) {}
+
+   @Override
+   void projectsEvaluated(Gradle gradle) {}
+
+   @Override
+   void projectsLoaded(Gradle gradle) {}
+
+   @Override
+   void settingsEvaluated(Settings settings) {}
+}
+
+gradle.addListener new TimingsListener()
